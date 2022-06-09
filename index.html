@@ -1,0 +1,144 @@
+<script src="./examples.js"></script>
+<script src="./priority_queue.js"></script>
+<script src="./dictionary.js"></script>
+<script src="./sweepline.js"></script>
+<body>
+</body>
+<script>
+
+let cnv = document.createElement("canvas");
+cnv.width = 600;
+cnv.height = 600;
+document.body.appendChild(cnv);
+let ctx = cnv.getContext("2d");
+
+let ls = new Array;
+
+function huetorgb(hue){
+	// Hue: a number from 0 to 1
+	hue = hue % 1;
+	if(hue < 0) hue += 1;
+	let r = Math.round( Math.max(0, Math.min(1,  Math.abs( - 6 * hue + 3 ) - 1)) * 255 ).toString(16);
+	let g = Math.round( Math.max(0, Math.min(1, -Math.abs( - 6 * hue + 2 ) + 2)) * 255 ).toString(16);
+	let b = Math.round( Math.max(0, Math.min(1, -Math.abs( - 6 * hue + 4 ) + 2)) * 255 ).toString(16);
+	if(r.length > 2) r = "ff";
+	if(g.length > 2) g = "ff";
+	if(b.length > 2) b = "ff";
+	if(r.length < 2) r = "0"+r;
+	if(g.length < 2) g = "0"+g;
+	if(b.length < 2) b = "0"+b;
+	return "#"+r+g+b;
+}
+
+function lineSegment(p1, p2){
+	ctx.beginPath();
+	ctx.moveTo(p1.x, p1.y);
+	ctx.lineTo(p2.x, p2.y);
+	ctx.stroke();
+}
+
+let ex = 0;
+
+function generateLS(n = 25){
+	let msize = 50, Msize = 100;
+	ls = new Array;
+	for(let i = 0; i < n; ++i){
+		let len = Math.random() * (Msize - msize) + msize;
+		let ang = Math.random() * 2 * Math.PI;
+		let p1 = {x: 500 * Math.random() + 50 + 0.5 * len * Math.cos(ang), y: 500 * Math.random() + 50 + 0.5 * len * Math.sin(ang) };
+		let p2 = {x: 500 * Math.random() + 50 - 0.5 * len * Math.cos(ang), y: 500 * Math.random() + 50 - 0.5 * len * Math.sin(ang) };
+		ls.push([p1, p2]);
+	}
+	
+	if(examples[ex] !== undefined) ls = examples[ex];
+}
+
+let drawnsegment = 0;
+
+function drawDS(tree){
+	if(tree === null) return;
+	
+	drawDS(tree.l);
+	
+	let col = huetorgb( 0.83 * (drawnsegment++) / DS.size );
+	ctx.strokeStyle = col.toUpperCase();
+	lineSegment(...tree.value);
+	
+	drawDS(tree.r);
+}
+
+function draw(tcoord){
+	ctx.clearRect(0,0,cnv.width,cnv.height);
+	ctx.strokeStyle = "#000000";
+	for(let l of ls){
+		lineSegment(...l);
+	}
+	ctx.strokeStyle = "#FF0000";
+	if(tcoord !== undefined) {
+		lineSegment( {x: tcoord, y: 0}, {x: tcoord, y: cnv.height} );
+	}
+	
+	drawnsegment = 0;
+	ctx.lineWidth = 2;
+	drawDS(DS.tree);
+	ctx.lineWidth = 1;
+	
+	ctx.fillStyle = "#FF0000";
+	for(let pt of collisions){
+		let x = pt.x, y = pt.y;
+		ctx.beginPath();
+		ctx.arc(x, y, 3, 0, 2 * Math.PI);
+		ctx.fill();
+	}
+	
+	intersectionsTA.value = collisions.map( p => "(" + p.x + ", " + p.y + ")" ).join("\n");
+}
+
+function setDisabled(en = true){
+	let elems = [ document.getElementById("animbuttn"),
+	              document.getElementById("selswitch"),
+	              document.getElementById("resetbutn"),
+	              document.getElementById("stepbuttn"),
+	              document.getElementById("computebt"),
+	              document.getElementById("numlinesg"),
+	              document.getElementById("generbutn") ];
+	for(let elem of elems) elem.disabled = en;
+}
+
+generateLS();
+
+function animate_linesweep(gap=700 / ls.length){
+	setDisabled(true);
+	function animationStep(){
+		sweeplinestep(draw);
+		if(PQ.length > 0) window.setTimeout( animationStep, gap );
+		else {
+			draw(Infinity);
+			setDisabled(false);
+		}
+	}
+	init(ls);
+	animationStep();
+}
+init(ls); 
+</script>
+<br>
+
+<button id="animbuttn" onclick="timeb.innerHTML = ''; animate_linesweep();">Animate</button>
+<select id="selswitch" onfocus="selswitch.value = -2;" onchange="timeb.innerHTML = ''; ex = selswitch.value; generateLS(numlinesg.value); collisions = new Array; init(ls); draw(); animbuttn.focus()">
+	<option value="0">Example 1</option>
+	<option value="1">Example 2</option>
+	<option value="-1">Random</option>
+</select>
+<input  id="numlinesg" type="number" value="25"></input>
+<button id="resetbutn" onclick="init(ls); timeb.innerHTML = ''; draw();">Reset</button>
+<button id="generbutn" onclick="timeb.innerHTML = ''; ex = selswitch.value; generateLS(numlinesg.value); collisions = new Array; init(ls); draw(); ">Generate Anew</button>
+<button id="stepbuttn" onclick="timeb.innerHTML = ''; sweeplinestep(draw);">Step</button>
+<button id="computebt" onclick="let init = performance.now(); sweepline(ls); let end = performance.now(); timeb.innerHTML = (end - init) + ' ms'; draw();">Compute</button>
+<b id="timeb"></b><br>
+<textarea id="intersectionsTA" disabled></textarea>
+
+<script>
+draw();
+</script>
+
